@@ -1,0 +1,35 @@
+{
+  "name": "@overflowz/messaging",
+  "version": "1.0.0",
+  "description": "request-reply & broadcast messaging",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "keywords": [],
+  "author": "Nika Gogeshvili <gogeshvili.nika@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "build": "yarn pnpify tsc",
+    "prepublish": "yarn pnpify tsc",
+    "vscodeify": "yarn dlx @yarnpkg/pnpify --sdk vscode",
+    "tsnode": "yarn pnpify ts-node",
+    "rollup": "yarn pnpify rollup -c rollup.config.js"
+  },
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^6.0.0",
+    "@types/debug": "^4.1.5",
+    "@types/node": "^14.11.8",
+    "@types/uuid": "^8.3.0",
+    "@yarnpkg/pnpify": "^2.1.0",
+    "rollup": "^2.29.0",
+    "rollup-plugin-terser": "^7.0.2",
+    "ts-node": "^9.0.0",
+    "tsconfig-paths": "^3.9.0",
+    "tslib": "^2.0.3",
+    "typescript": "^4.0.3"
+  },
+  "dependencies": {
+    "debug": "^4.3.0",
+    "rxjs": "^6.6.3",
+    "ulid": "^2.3.0"
+  }
+}
