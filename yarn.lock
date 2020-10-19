@@ -68,9 +68,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@overflowz/messaging@workspace:.":
+"@overflowz/rmp@workspace:.":
   version: 0.0.0-use.local
-  resolution: "@overflowz/messaging@workspace:."
+  resolution: "@overflowz/rmp@workspace:."
   dependencies:
     "@rollup/plugin-typescript": ^6.0.0
     "@types/debug": ^4.1.5
