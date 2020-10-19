@@ -17,10 +17,10 @@ import {
 } from './interface';
 import tryCatch from '~self/utils/tryCatch';
 
-const DEBUG_NS = 'messaging:core';
+const DEBUG_NS = '@overflowz/rmp:core';
 const ULID = monotonicFactory();
 
-export class Messenger {
+export class RMP {
   private onRequestCallback?: OnRequestCallback;
   private onBroadcastCallback?: OnBroadcastCallback;
 
@@ -36,7 +36,7 @@ export class Messenger {
     this.adapter.subClient.onMessage(this.onMessage.bind(this));
   }
 
-  static async create({ channel, broadcastChannels, adapter }: ICreateMessengerOptions): Promise<Messenger> {
+  static async create({ channel, broadcastChannels, adapter }: ICreateMessengerOptions): Promise<RMP> {
     const instance = new this(channel, adapter);
 
     const channelsUniq = [...new Set([channel, ...broadcastChannels ?? []])];
