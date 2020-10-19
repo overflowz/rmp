@@ -1,7 +1,7 @@
 import debug from 'debug';
 import { monotonicFactory } from 'ulid';
 import { defer, Observable, Subject, combineLatest, of, throwError } from 'rxjs';
-import { filter, first, map, mergeMap, share, timeoutWith } from 'rxjs/operators';
+import { filter, first, map, mergeMap, share, tap, timeoutWith } from 'rxjs/operators';
 
 import {
   BroadcastPacket,
@@ -22,27 +22,32 @@ const ULID = monotonicFactory();
 
 export class Messenger {
   private onRequestCallback?: OnRequestCallback;
+  private onBroadcastCallback?: OnBroadcastCallback;
 
   private readonly messageStream$: Subject<{
-    topic: string;
+    channel: string;
     packet: Packet<unknown>;
   }> = new Subject();
 
   private constructor(
-    private readonly topic: string,
+    private readonly channel: string,
     private readonly adapter: IAdapter,
   ) {
     this.adapter.subClient.onMessage(this.onMessage.bind(this));
   }
 
-  static async create({ topic, adapter }: ICreateMessengerOptions): Promise<Messenger> {
-    const instance = new this(topic, adapter);
+  static async create({ channel, broadcastChannels, adapter }: ICreateMessengerOptions): Promise<Messenger> {
+    const instance = new this(channel, adapter);
 
-    await adapter.subClient.subscribe(topic);
+    const channelsUniq = [...new Set([channel, ...broadcastChannels ?? []])];
+    await Promise.all(
+      channelsUniq.map((channel) => adapter.subClient.subscribe(channel)),
+    );
+
     return instance;
   }
 
-  private onMessage(topic: string, message: string): void {
+  private onMessage(channel: string, message: string): void {
     const d = debug(`${DEBUG_NS}:onMessage`);
 
     const packet = tryCatch<Packet>(() => JSON.parse(message));
@@ -59,37 +64,27 @@ export class Messenger {
       return void d('missing correlationId in the packet header: %j', { packet });
     }
 
-    if (type === PacketType.Request && typeof headers?.responseTopic === 'undefined') {
-      return void d('missing responseTopic in the request packet: %j', { packet });
+    if (type === PacketType.Request && typeof headers?.responseChannel === 'undefined') {
+      return void d('missing responseChannel in the request packet: %j', { packet });
     }
 
-    this.messageStream$.next({ topic, packet });
+    if (type === PacketType.Broadcast && channel === this.channel) {
+      return void d('ignoring the own broadcast message');
+    }
+
+    this.messageStream$.next({ channel, packet });
   }
 
-  private getMessageStream<T>(topic: string): Observable<Packet<T>> {
+  private getMessageStream<T>(channel: string): Observable<Packet<T>> {
     return this.messageStream$.pipe(
-      filter(message => message.topic === topic),
+      filter(message => message.channel === channel),
       map(message => message.packet as Packet<T>),
-    );
-  }
-
-  private getRequestStream<T>(topic: string): Observable<RequestPacket<T>> {
-    return this.getMessageStream<T>(topic).pipe(
-      filter((packet): packet is RequestPacket<T> => packet.type === PacketType.Request),
-      share(),
-    );
-  }
-
-  private getBroadcastStream<T>(topic: string): Observable<BroadcastPacket<T>> {
-    return this.getMessageStream<T>(topic).pipe(
-      filter((packet): packet is BroadcastPacket<T> => packet.type === PacketType.Broadcast),
-      share(),
     );
   }
 
   private async reply<T1, T2>(request: RequestPacket<T1>, payload: T2): Promise<void> {
     const d = debug(`${DEBUG_NS}:reply`);
-    const { correlationId, responseTopic } = request.headers;
+    const { correlationId, responseChannel } = request.headers;
 
     const headers: PacketHeaders = {
       correlationId,
@@ -102,7 +97,7 @@ export class Messenger {
     };
 
     const publish = await tryCatch(
-      () => this.adapter.pubClient.publish(responseTopic, JSON.stringify(packet))
+      () => this.adapter.pubClient.publish(responseChannel, JSON.stringify(packet))
     );
 
     if (publish instanceof Error) {
@@ -127,7 +122,7 @@ export class Messenger {
     };
 
     const publish = await tryCatch(
-      () => this.adapter.pubClient.publish(this.topic, JSON.stringify(packet)),
+      () => this.adapter.pubClient.publish(this.channel, JSON.stringify(packet)),
     );
 
     if (publish instanceof Error) {
@@ -138,13 +133,13 @@ export class Messenger {
     return Promise.resolve();
   }
 
-  request<T1 = unknown, T2 = unknown>(topic: string, payload: T1, timeoutMs?: number): Promise<T2> {
+  request<T1 = unknown, T2 = unknown>(channel: string, payload: T1, timeoutMs?: number): Promise<T2> {
     const d = debug(`${DEBUG_NS}:request`);
     const correlationId = ULID();
 
     const headers: PacketHeaders = {
       correlationId,
-      responseTopic: this.topic,
+      responseChannel: this.channel,
     };
 
     const packet: Packet<T1> = {
@@ -155,7 +150,7 @@ export class Messenger {
 
     const sendMessage$ = defer(async () => {
       const publish = await tryCatch(
-        () => this.adapter.pubClient.publish(topic, JSON.stringify(packet))
+        () => this.adapter.pubClient.publish(channel, JSON.stringify(packet))
       );
 
       if (publish instanceof Error) {
@@ -167,7 +162,7 @@ export class Messenger {
     });
 
     return combineLatest([
-      this.getMessageStream<T2>(this.topic),
+      this.getMessageStream<T2>(this.channel),
       sendMessage$,
     ]).pipe(
       timeoutWith(timeoutMs ?? 30000, throwError(new Error('ERROR_REQUEST_TIMEOUT'))),
@@ -188,32 +183,26 @@ export class Messenger {
 
     this.onRequestCallback = callback;
 
-    this.getRequestStream(this.topic).pipe(
+    this.getMessageStream(this.channel).pipe(
+      filter((packet): packet is RequestPacket => packet.type === PacketType.Request),
       mergeMap(req => combineLatest([
         of(req),
-        defer(async () => callback(req.payload)),
+        defer(async () => this.onRequestCallback?.(this.channel, req.payload)),
       ])),
-      mergeMap(([req, res]) => defer(async () => this.reply(req, res))),
+      mergeMap(([req, res]) => defer(async () => tryCatch(() => this.reply(req, res)))),
     ).subscribe();
   }
 
-  onBroadcast(topic: string, callback: OnBroadcastCallback): void {
-    const d = debug(`${DEBUG_NS}:onBroadcast`);
+  onBroadcast(callback: OnBroadcastCallback): void {
+    if (typeof this.onBroadcastCallback !== 'undefined') {
+      throw new Error('cannot call onBroadcast more than once');
+    }
 
-    const subscribe$ = defer(async () => {
-      const subscription = await tryCatch(() => this.adapter.subClient.subscribe(topic));
+    this.onBroadcastCallback = callback;
 
-      if (subscription instanceof Error) {
-        d('error publishing the packet: %j', { subscription });
-        return Promise.reject(subscription.origin);
-      }
-
-      return Promise.resolve();
-    });
-
-    return void subscribe$.pipe(
-      mergeMap(_ => this.getBroadcastStream(topic)),
-      map(req => req.payload),
-    ).subscribe(callback);
+    return void this.messageStream$.pipe(
+      filter(f => f.packet.type === PacketType.Broadcast),
+      tap(({ channel, packet }) => this.onBroadcastCallback?.(channel, packet.payload)),
+    ).subscribe();
   }
 }

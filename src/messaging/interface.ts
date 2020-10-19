@@ -1,10 +1,10 @@
-export type OnMessageCallback = (topic: string, message: string) => void;
-export type OnRequestCallback = (payload: unknown) => unknown | Promise<unknown>;
-export type OnBroadcastCallback = (payload: unknown) => void | Promise<void>;
+export type OnMessageCallback = (channel: string, message: string) => void;
+export type OnRequestCallback = (channel: string, message: unknown) => unknown | Promise<unknown>;
+export type OnBroadcastCallback = (channel: string, message: unknown) => void | Promise<void>;
 
 export type PacketHeaders = {
   correlationId: string;
-  responseTopic?: string;
+  responseChannel?: string;
 };
 
 export enum PacketType {
@@ -22,7 +22,7 @@ export type Packet<T = unknown> = {
 export type RequestPacket<T = unknown> = Packet<T> & {
   type: PacketType.Request;
   headers: Packet<T>['headers'] & {
-    responseTopic: string;
+    responseChannel: string;
   };
 };
 
@@ -49,6 +49,7 @@ export interface IAdapter {
 }
 
 export type ICreateMessengerOptions = {
-  topic: string;
+  channel: string;
+  broadcastChannels?: string[];
   adapter: IAdapter;
 };
