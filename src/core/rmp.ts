@@ -1,12 +1,12 @@
 import debug from 'debug';
 import { monotonicFactory } from 'ulid';
 import { defer, Observable, Subject, combineLatest, of, throwError } from 'rxjs';
-import { filter, first, map, mergeMap, share, tap, timeoutWith } from 'rxjs/operators';
+import { filter, first, map, mergeMap, tap, timeoutWith } from 'rxjs/operators';
 
 import {
   BroadcastPacket,
   IAdapter,
-  ICreateMessengerOptions,
+  IConnectOptions,
   OnBroadcastCallback,
   OnRequestCallback,
   Packet,
@@ -36,7 +36,7 @@ export class RMP {
     this.adapter.subClient.onMessage(this.onMessage.bind(this));
   }
 
-  static async create({ channel, broadcastChannels, adapter }: ICreateMessengerOptions): Promise<RMP> {
+  static async connect({ channel, broadcastChannels, adapter }: IConnectOptions): Promise<RMP> {
     const instance = new this(channel, adapter);
 
     const channelsUniq = [...new Set([channel, ...broadcastChannels ?? []])];
