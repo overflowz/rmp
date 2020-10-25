@@ -6,7 +6,7 @@ import { filter, first, map, mergeMap, tap, timeoutWith } from 'rxjs/operators';
 import {
   BroadcastPacket,
   IAdapter,
-  IConnectOptions,
+  ConnectOptions,
   OnBroadcastCallback,
   OnRequestCallback,
   Packet,
@@ -36,10 +36,10 @@ export class RMP {
     this.adapter.subClient.onMessage(this.onMessage.bind(this));
   }
 
-  static async connect({ channel, broadcastChannels, adapter }: IConnectOptions): Promise<RMP> {
+  static async connect({ channel, subscribeTo, adapter }: ConnectOptions): Promise<RMP> {
     const instance = new this(channel, adapter);
 
-    const channelsUniq = [...new Set([channel, ...broadcastChannels ?? []])];
+    const channelsUniq = [...new Set([channel, ...subscribeTo ?? []])];
     await Promise.all(
       channelsUniq.map((channel) => adapter.subClient.subscribe(channel)),
     );

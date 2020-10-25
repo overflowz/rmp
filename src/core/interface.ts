@@ -48,8 +48,8 @@ export interface IAdapter {
   subClient: ISubClient;
 }
 
-export type IConnectOptions = {
+export type ConnectOptions = {
   channel: string;
-  broadcastChannels?: string[];
+  subscribeTo?: string[];
   adapter: IAdapter;
 };
