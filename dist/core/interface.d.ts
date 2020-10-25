@@ -38,7 +38,7 @@ export interface IAdapter {
     pubClient: IPubClient;
     subClient: ISubClient;
 }
-export declare type ICreateMessengerOptions = {
+export declare type IConnectOptions = {
     channel: string;
     broadcastChannels?: string[];
     adapter: IAdapter;

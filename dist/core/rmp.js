@@ -13,7 +13,7 @@ export class RMP {
         this.messageStream$ = new Subject();
         this.adapter.subClient.onMessage(this.onMessage.bind(this));
     }
-    static async create({ channel, broadcastChannels, adapter }) {
+    static async connect({ channel, broadcastChannels, adapter }) {
         const instance = new this(channel, adapter);
         const channelsUniq = [...new Set([channel, ...broadcastChannels ?? []])];
         await Promise.all(channelsUniq.map((channel) => adapter.subClient.subscribe(channel)));

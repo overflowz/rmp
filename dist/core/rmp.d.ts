@@ -1,4 +1,4 @@
-import { ICreateMessengerOptions, OnBroadcastCallback, OnRequestCallback } from './interface';
+import { IConnectOptions, OnBroadcastCallback, OnRequestCallback } from './interface';
 export declare class RMP {
     private readonly channel;
     private readonly adapter;
@@ -6,7 +6,7 @@ export declare class RMP {
     private onBroadcastCallback?;
     private readonly messageStream$;
     private constructor();
-    static create({ channel, broadcastChannels, adapter }: ICreateMessengerOptions): Promise<RMP>;
+    static connect({ channel, broadcastChannels, adapter }: IConnectOptions): Promise<RMP>;
     private onMessage;
     private getMessageStream;
     private reply;
