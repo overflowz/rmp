@@ -1,6 +1,6 @@
 {
   "name": "@overflowz/rmp",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "request-reply & broadcast messaging over pubsub",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
