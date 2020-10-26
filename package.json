@@ -8,11 +8,10 @@
   "author": "Nika Gogeshvili <gogeshvili.nika@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "build": "yarn pnpify tsc",
-    "prepublish": "yarn pnpify tsc",
+    "build": "yarn pnpify rollup -c rollup.config.js",
+    "prepublish": "yarn pnpify rollup -c rollup.config.js",
     "vscodeify": "yarn dlx @yarnpkg/pnpify --sdk vscode",
-    "tsnode": "yarn pnpify ts-node",
-    "rollup": "yarn pnpify rollup -c rollup.config.js"
+    "tsnode": "yarn pnpify ts-node"
   },
   "devDependencies": {
     "@rollup/plugin-typescript": "^6.0.0",
