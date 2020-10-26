@@ -1,5 +1,8 @@
+"use strict";
 /* eslint-disable lines-between-class-members, @typescript-eslint/no-explicit-any */
-export class TryCatchError extends Error {
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.TryCatchError = void 0;
+class TryCatchError extends Error {
     constructor(message, origin) {
         super(message);
         this.name = 'TryCatchError';
@@ -12,6 +15,7 @@ export class TryCatchError extends Error {
         return new TryCatchError(err.message, err);
     }
 }
+exports.TryCatchError = TryCatchError;
 const tryCatch = (fn) => {
     try {
         const res = fn();
@@ -23,5 +27,5 @@ const tryCatch = (fn) => {
         return TryCatchError.from(err instanceof Error ? err : new Error(err));
     }
 };
-export default tryCatch;
+exports.default = tryCatch;
 //# sourceMappingURL=tryCatch.js.map
