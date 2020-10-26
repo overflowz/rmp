@@ -33,7 +33,14 @@ export class RMP {
     private readonly channel: string,
     private readonly adapter: IAdapter,
   ) {
-    this.adapter.subClient.onMessage(this.onMessage.bind(this));
+    this.onMessage = this.onMessage.bind(this);
+
+    this.request = this.request.bind(this);
+    this.broadcast = this.broadcast.bind(this);
+    this.onRequest = this.onRequest.bind(this);
+    this.onBroadcast = this.onBroadcast.bind(this);
+
+    this.adapter.subClient.onMessage(this.onMessage);
   }
 
   static async connect({ channel, subscribeTo, adapter }: ConnectOptions): Promise<RMP> {
