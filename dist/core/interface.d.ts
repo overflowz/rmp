@@ -38,8 +38,8 @@ export interface IAdapter {
     pubClient: IPubClient;
     subClient: ISubClient;
 }
-export declare type IConnectOptions = {
+export declare type ConnectOptions = {
     channel: string;
-    broadcastChannels?: string[];
+    subscribeTo?: string[];
     adapter: IAdapter;
 };
