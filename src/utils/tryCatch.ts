@@ -1,23 +1,4 @@
-/* eslint-disable lines-between-class-members, @typescript-eslint/no-explicit-any */
-
-export class TryCatchError extends Error {
-  public readonly origin: any;
-
-  constructor(message: string, origin: any) {
-    super(message);
-
-    this.name = 'TryCatchError';
-    this.origin = origin;
-
-    if (typeof Error.captureStackTrace === 'function') {
-      Error.captureStackTrace(this);
-    }
-  }
-
-  static from(err: Error): TryCatchError {
-    return new TryCatchError(err.message, err);
-  }
-}
+import TryCatchError from '~self/errors/TryCatchError';
 
 const tryCatch = <T>(fn: () => T): T | TryCatchError => {
   try {
