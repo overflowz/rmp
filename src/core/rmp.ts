@@ -1,8 +1,10 @@
 import debug from 'debug';
 import { monotonicFactory } from 'ulid';
-import { defer, Observable, Subject, combineLatest, of, throwError } from 'rxjs';
+import { serializeError, deserializeError, ErrorObject } from 'serialize-error';
+import { defer, Observable, Subject, combineLatest, of, throwError, pipe } from 'rxjs';
 import { filter, first, map, mergeMap, tap, timeoutWith } from 'rxjs/operators';
 
+import tryCatch, { TryCatchError } from '~self/utils/tryCatch';
 import {
   BroadcastPacket,
   IAdapter,
@@ -15,14 +17,13 @@ import {
   RequestPacket,
   ResponsePacket,
 } from './interface';
-import tryCatch from '~self/utils/tryCatch';
 
 const DEBUG_NS = '@overflowz/rmp:core';
 const ULID = monotonicFactory();
 
 export class RMP {
-  private onRequestCallback?: OnRequestCallback;
-  private onBroadcastCallback?: OnBroadcastCallback;
+  private onRequestCallback: OnRequestCallback = () => void 0;
+  private onBroadcastCallback: OnBroadcastCallback = () => void 0;
 
   private readonly messageStream$: Subject<{
     channel: string;
@@ -95,12 +96,17 @@ export class RMP {
 
     const headers: PacketHeaders = {
       correlationId,
+      isErrorResponse: payload instanceof Error,
     };
 
-    const packet: ResponsePacket<T2> = {
+    const packet: ResponsePacket<T2 | ErrorObject> = {
       type: PacketType.Response,
       headers,
-      payload,
+      payload: payload instanceof TryCatchError
+        ? serializeError(payload.origin ?? payload)
+        : payload instanceof Error
+          ? serializeError(payload)
+          : payload,
     };
 
     const publish = await tryCatch(
@@ -168,46 +174,50 @@ export class RMP {
       return Promise.resolve();
     });
 
-    return combineLatest([
-      this.getMessageStream<T2>(this.channel),
-      sendMessage$,
-    ]).pipe(
+    return of(null).pipe(
       timeoutWith(timeoutMs ?? 30000, throwError(new Error('ERROR_REQUEST_TIMEOUT'))),
+      mergeMap(() => combineLatest([
+        this.getMessageStream<T2>(this.channel).pipe(
+          filter(
+            (packet: Packet<T2>): packet is ResponsePacket<T2> =>
+              packet.type === PacketType.Response && packet.headers.correlationId === correlationId,
+          ),
+        ),
+        sendMessage$,
+      ])),
       map(([packet]) => packet),
-      filter(
-        (packet: Packet<T2>): packet is ResponsePacket<T2> =>
-          packet.type === PacketType.Response && packet.headers.correlationId === correlationId,
-      ),
       first(),
+      mergeMap(packet => packet.headers.isErrorResponse ? throwError(deserializeError(packet.payload)) : of(packet)),
       map(packet => packet.payload),
     ).toPromise();
   }
 
-  onRequest(callback: OnRequestCallback): void {
-    if (typeof this.onRequestCallback !== 'undefined') {
-      throw new Error('cannot call onRequest more than once');
-    }
+  get onRequest(): OnRequestCallback {
+    return this.onRequestCallback;
+  }
 
+  // TODO: cancel previous subscription on new set.
+  set onRequest(callback: OnRequestCallback) {
     this.onRequestCallback = callback;
 
     this.getMessageStream(this.channel).pipe(
       filter((packet): packet is RequestPacket => packet.type === PacketType.Request),
       mergeMap(req => combineLatest([
         of(req),
-        defer(async () => this.onRequestCallback?.(this.channel, req.payload)),
+        defer(async () => tryCatch(() => this.onRequestCallback?.(this.channel, req.payload))),
       ])),
       mergeMap(([req, res]) => defer(async () => tryCatch(() => this.reply(req, res)))),
     ).subscribe();
   }
 
-  onBroadcast(callback: OnBroadcastCallback): void {
-    if (typeof this.onBroadcastCallback !== 'undefined') {
-      throw new Error('cannot call onBroadcast more than once');
-    }
+  get onBroadcast(): OnBroadcastCallback {
+    return this.onBroadcastCallback;
+  }
 
+  set onBroadcast(callback: OnBroadcastCallback) {
     this.onBroadcastCallback = callback;
 
-    return void this.messageStream$.pipe(
+    this.messageStream$.pipe(
       filter(f => f.packet.type === PacketType.Broadcast),
       tap(({ channel, packet }) => this.onBroadcastCallback?.(channel, packet.payload)),
     ).subscribe();

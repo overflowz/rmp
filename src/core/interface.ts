@@ -5,6 +5,7 @@ export type OnBroadcastCallback = (channel: string, message: unknown) => void | 
 export type PacketHeaders = {
   correlationId: string;
   responseChannel?: string;
+  isErrorResponse?: boolean;
 };
 
 export enum PacketType {
@@ -36,12 +37,12 @@ export type BroadcastPacket<T = unknown> = Packet<T> & {
 
 export interface IPubClient {
   publish(channel: string, message: string): Promise<void>;
-};
+}
 
 export interface ISubClient {
   subscribe(channel: string): Promise<void>;
   onMessage(callback: OnMessageCallback): void;
-};
+}
 
 export interface IAdapter {
   pubClient: IPubClient;
