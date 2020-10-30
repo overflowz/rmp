@@ -1,10 +1,9 @@
 import debug from 'debug';
 import { monotonicFactory } from 'ulid';
-import { serializeError, deserializeError, ErrorObject } from 'serialize-error';
 import { defer, Observable, Subject, combineLatest, of, throwError, Subscription } from 'rxjs';
 import { filter, first, map, mergeMap, tap, timeoutWith } from 'rxjs/operators';
 
-import tryCatch, { TryCatchError } from '~self/utils/tryCatch';
+import tryCatch from '~self/utils/tryCatch';
 import {
   BroadcastPacket,
   IAdapter,
@@ -102,14 +101,10 @@ export class RMP {
       isErrorResponse: payload instanceof Error,
     };
 
-    const packet: ResponsePacket<T2 | ErrorObject> = {
+    const packet: ResponsePacket<T2 | string> = {
       type: PacketType.Response,
       headers,
-      payload: payload instanceof TryCatchError
-        ? serializeError(payload.origin ?? payload)
-        : payload instanceof Error
-          ? serializeError(payload)
-          : payload,
+      payload: payload instanceof Error ? payload.message : payload,
     };
 
     const publish = await tryCatch(
@@ -190,7 +185,17 @@ export class RMP {
       ])),
       map(([packet]) => packet),
       first(),
-      mergeMap(packet => packet.headers.isErrorResponse ? throwError(deserializeError(packet.payload)) : of(packet)),
+      mergeMap((packet) => {
+        if (packet.headers.isErrorResponse) {
+          return throwError(
+            typeof packet.payload === 'string'
+              ? new Error(packet.payload)
+              : packet.payload,
+          );
+        }
+
+        return of(packet);
+      }),
       map(packet => packet.payload),
     ).toPromise();
   }
