@@ -4,6 +4,7 @@ export declare type OnBroadcastCallback = (channel: string, message: unknown) =>
 export declare type PacketHeaders = {
     correlationId: string;
     responseChannel?: string;
+    isErrorResponse?: boolean;
 };
 export declare enum PacketType {
     Request = 0,
