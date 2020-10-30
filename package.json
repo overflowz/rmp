@@ -29,7 +29,6 @@
   "dependencies": {
     "debug": "^4.3.0",
     "rxjs": "^6.6.3",
-    "serialize-error": "^7.0.1",
     "ulid": "^2.3.0"
   }
 }
