@@ -1,7 +1,7 @@
 import debug from 'debug';
 import { monotonicFactory } from 'ulid';
 import { serializeError, deserializeError, ErrorObject } from 'serialize-error';
-import { defer, Observable, Subject, combineLatest, of, throwError, pipe } from 'rxjs';
+import { defer, Observable, Subject, combineLatest, of, throwError, Subscription } from 'rxjs';
 import { filter, first, map, mergeMap, tap, timeoutWith } from 'rxjs/operators';
 
 import tryCatch, { TryCatchError } from '~self/utils/tryCatch';
@@ -24,6 +24,9 @@ const ULID = monotonicFactory();
 export class RMP {
   private onRequestCallback: OnRequestCallback = () => void 0;
   private onBroadcastCallback: OnBroadcastCallback = () => void 0;
+
+  private onRequestSubscription?: Subscription;
+  private onBroadcastSubscription?: Subscription;
 
   private readonly messageStream$: Subject<{
     channel: string;
@@ -196,11 +199,11 @@ export class RMP {
     return this.onRequestCallback;
   }
 
-  // TODO: cancel previous subscription on new set.
   set onRequest(callback: OnRequestCallback) {
     this.onRequestCallback = callback;
 
-    this.getMessageStream(this.channel).pipe(
+    this.onRequestSubscription?.unsubscribe();
+    this.onRequestSubscription = this.getMessageStream(this.channel).pipe(
       filter((packet): packet is RequestPacket => packet.type === PacketType.Request),
       mergeMap(req => combineLatest([
         of(req),
@@ -217,7 +220,8 @@ export class RMP {
   set onBroadcast(callback: OnBroadcastCallback) {
     this.onBroadcastCallback = callback;
 
-    this.messageStream$.pipe(
+    this.onBroadcastSubscription?.unsubscribe();
+    this.onBroadcastSubscription = this.messageStream$.pipe(
       filter(f => f.packet.type === PacketType.Broadcast),
       tap(({ channel, packet }) => this.onBroadcastCallback?.(channel, packet.payload)),
     ).subscribe();
