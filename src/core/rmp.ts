@@ -4,6 +4,8 @@ import { defer, Observable, Subject, combineLatest, of, throwError, Subscription
 import { filter, first, map, mergeMap, tap, timeoutWith } from 'rxjs/operators';
 
 import tryCatch from '~self/utils/tryCatch';
+import ResponseError from '~self/errors/ResponseError';
+
 import {
   BroadcastPacket,
   IAdapter,
@@ -185,17 +187,14 @@ export class RMP {
       ])),
       map(([packet]) => packet),
       first(),
-      mergeMap((packet) => {
-        if (packet.headers.isErrorResponse) {
-          return throwError(
-            typeof packet.payload === 'string'
-              ? new Error(packet.payload)
-              : packet.payload,
-          );
-        }
-
-        return of(packet);
-      }),
+      mergeMap((packet) => packet.headers.isErrorResponse
+        ? throwError(
+          typeof packet.payload === 'string'
+            ? new ResponseError(packet.payload)
+            : new Error('ERROR_INVALID_RESPONSE'),
+        )
+        : of(packet),
+      ),
       map(packet => packet.payload),
     ).toPromise();
   }
